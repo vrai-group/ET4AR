@@ -9,11 +9,14 @@ def createTables(cursor):
     cursor.execute("CREATE TABLE IF NOT EXISTS fix_out (id_user VARCHAR(15), timestamp TIMESTAMP NULL DEFAULT NULL, x DECIMAL(4,2), y DECIMAL(4,2), near_aoi INT(2));")
     cursor.execute("CREATE TABLE IF NOT EXISTS saccades (id_row INT NOT NULL AUTO_INCREMENT PRIMARY KEY, id_user VARCHAR(15), saccade INT(2), aoi INT(2));")
     cursor.execute("CREATE TABLE IF NOT EXISTS emissione (id_user VARCHAR(15), aoi INT(2), probabilita DECIMAL(6,5));")
-    cursor.execute("CREATE TABLE IF NOT EXISTS transizione (aoi_partenza INT(2), aoi_arrivo INT(2), probabilita DECIMAL(11,10));")
+    #cursor.execute("CREATE TABLE IF NOT EXISTS transizione (aoi_partenza INT(2), aoi_arrivo INT(2), probabilita DECIMAL(11,10));")
 
 def selectFromTable(cursor, table):
     if table == 'fix_in':
         cursor.execute("SELECT * FROM fix_in")
+        table_fetchall = cursor.fetchall()
+    elif table == 'fix_in DISTINCT':
+        cursor.execute("SELECT DISTINCT * FROM fix_in")
         table_fetchall = cursor.fetchall()
     elif table == 'fix_out':
         cursor.execute("SELECT * FROM fix_out")
@@ -23,6 +26,9 @@ def selectFromTable(cursor, table):
         table_fetchall = cursor.fetchall()
     elif table == 'db':
         cursor.execute("SELECT * FROM db")
+        table_fetchall = cursor.fetchall()
+    elif table == 'emissione':
+        cursor.execute("SELECT * FROM emissione")
         table_fetchall = cursor.fetchall()
     return table_fetchall
 
@@ -30,6 +36,9 @@ def countRowTable(cursor, table):
     if table == 'fix_in':
         cursor.execute("SELECT * FROM fix_in")
         table_rowcount = cursor.rowcount
+    elif table == 'fix_in DISTINCT':
+        cursor.execute("SELECT DISTINCT * FROM fix_in")
+        table_rowcount = cursor.rowcount
     elif table == 'fix_out':
         cursor.execute("SELECT * FROM fix_out")
         table_rowcount = cursor.rowcount
@@ -38,6 +47,9 @@ def countRowTable(cursor, table):
         table_rowcount = cursor.rowcount
     elif table == 'db':
         cursor.execute("SELECT * FROM db")
+        table_rowcount = cursor.rowcount
+    elif table == 'emissione':
+        cursor.execute("SELECT * FROM emissione")
         table_rowcount = cursor.rowcount
     return table_rowcount
 
@@ -68,14 +80,24 @@ def selectFromTableWhere(conn, cursor, table, col1, val1):
         if col1 == 'id_user order by timestamp':
             cursor.execute("SELECT * FROM db WHERE id_user = %s ORDER BY timestamp ASC", val1)
             conn.commit()
+        elif col1 == 'id_user DISTINCT':
+            cursor.execute("SELECT DISTINCT id_user FROM db")
         table_fetchall = cursor.fetchall()
     return table_fetchall
 
-def countRowTableWhere(conn, cursor, table, col1, val1):
+def countRowTableWhere(conn, cursor, table, col1, val1, col2, val2):
     if table == 'fix_in':
         if col1 == 'aoi':
-            cursor.execute("SELECT * FROM fix_in WHERE aoi = %s", val1)
-            conn.commit()
+            if val1 == 'IS NULL':
+                cursor.execute("SELECT * FROM fix_in WHERE aoi IS NULL")
+                conn.commit()
+            else:
+                cursor.execute("SELECT * FROM fix_in WHERE aoi = %s", val1)
+                conn.commit()
+        elif col1 == 'id_user':
+            if col2 == 'aoi':
+                cursor.execute("SELECT * FROM fix_in WHERE id_user = %s AND aoi = %s;", (val1, val2))
+                conn.commit()
         table_rowcount = cursor.rowcount
     elif table == 'fix_out':
         if col1 == 'near_aoi':
@@ -85,7 +107,11 @@ def countRowTableWhere(conn, cursor, table, col1, val1):
             else:
                 cursor.execute("SELECT * FROM fix_out WHERE near_aoi = %s", val1)
                 conn.commit()
-            table_rowcount = cursor.rowcount
+        elif col1 == 'id_user':
+            if col2 == 'near_aoi':
+                cursor.execute("SELECT * FROM fix_out WHERE id_user = %s AND near_aoi = %s;", (val1, val2))
+                conn.commit()
+        table_rowcount = cursor.rowcount
     elif table == 'saccades':
         if col1 == 'id_user':
             cursor.execute("SELECT * FROM saccades WHERE id_user = %s", val1)
@@ -100,7 +126,7 @@ def countRowTableWhere(conn, cursor, table, col1, val1):
 
 def insertToTable(conn, cursor, table, val1, val2, val3, val4, val5):
     if table == 'fix_in':
-        cursor.execute("INSERT INTO fix_in (id_user, timestamp, x, y, aoi) VALUES (%s, %s, %s, %s, %s)", (val1, val2, val3, val4, val5))
+        cursor.execute("INSERT INTO fix_in (id_user, timestamp, x, y) VALUES (%s, %s, %s, %s)", (val1, val2, val3, val4))
     elif table == 'fix_out':
         cursor.execute("INSERT INTO fix_out (id_user, timestamp, x, y) VALUES (%s, %s, %s, %s)", (val1, val2, val3, val4))
     elif table == 'saccades':
@@ -109,6 +135,13 @@ def insertToTable(conn, cursor, table, val1, val2, val3, val4, val5):
         cursor.execute("INSERT INTO emissione (id_user, aoi, probabilita) VALUES (%s, %s, %s)", (val1, val2, val3))
     elif table == 'transizione':
         cursor.execute("INSERT INTO transizione (aoi_partenza, aoi_arrivo, probabilita) VALUES (%s, %s, %s)", (val1, val2, val3))
+    conn.commit()
+
+def updateTable(conn, cursor, table, valaoi, id_user, timestamp, x, y):
+    if table == 'fix_in':
+        cursor.execute("UPDATE fix_in SET aoi = %s WHERE id_user = %s AND timestamp = %s AND x = %s AND y = %s", (valaoi, id_user, timestamp, x, y))
+    elif table == 'fix_out':
+        cursor.execute("UPDATE fix_out SET near_aoi = %s WHERE id_user = %s AND timestamp = %s AND x = %s AND y = %s", (valaoi, id_user, timestamp, x, y))
     conn.commit()
 
 def selectAoiOrNearAoi(conn, cursor, table, val1, val2, val3, val4):
@@ -128,3 +161,7 @@ def countAoiOrNearAoi(conn, cursor, table, val1, val2, val3, val4):
     conn.commit()
     table_rowcount = cursor.rowcount
     return table_rowcount
+
+def truncTable(cursor, table):
+    if table == 'fix_in':
+        cursor.execute("TRUNCATE TABLE fix_in")
