@@ -17,7 +17,7 @@ def main():
         createTables(cursor)
         itera = True #permette di far ricomparire a video il menu, ad ogni termine di operazione
         while itera:
-            menu = input('\nDigita:\n 1 - Per dividere le fixations avvenute all\'interno di una AOI e all\'esterno;\n 2 - Per visualizzare le fixations avvenute all\'interno di una specifica AOI;\n 3 - Per visualizzare le fixations avvenute all\'esterno di una specifica AOI;\n 4 - Per calcolare l\'AOI osservata da ogni fixation;\n 5 - Per calcolare l\'AOI piu\' vicina ad ogni fixations esterna;\n 6 - Per visualizzare le saccades di uno specifico utente;\n 7 - Per calcolare la matrice di emissione;\n 8 - Per calcolare la matrice di transizione;\n 9 - Per calcolo percorso piu\' probabile;\n 0 - Per uscire dal programma.\n')
+            menu = input('\nDigita:\n 1 - Per dividere le fixations avvenute all\'interno di una AOI e all\'esterno;\n 2 - Per visualizzare le fixations avvenute all\'interno di una specifica AOI;\n 3 - Per visualizzare le fixations avvenute all\'esterno di una specifica AOI;\n 4 - Per calcolare l\'AOI osservata da ogni fixation;\n 5 - Per calcolare l\'AOI piu\' vicina ad ogni fixations esterna;\n 6 - Per visualizzare le saccades di uno specifico utente;\n 7 - Per calcolare la matrice di emissione;\n 0 - Per uscire dal programma.\n')
             if menu == 1:
                 divFix(conn, cursor)
             elif menu == 2:
@@ -32,6 +32,10 @@ def main():
                 viewSaccadesOfUser(conn, cursor)
             elif menu == 7:
                 calcMatrEmis(conn, cursor)
+            elif menu == 8:
+                calcMatrTrans(conn, cursor)
+            elif menu == 9:
+                hmm()
             elif menu == 0:
                 print 'Arrivederci!'
                 itera = False

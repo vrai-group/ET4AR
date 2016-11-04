@@ -9,6 +9,11 @@ getcontext().prec = 3 #Precisione del decimale
 
 from Model.Database import *
 
+import numpy as np
+import matplotlib.pyplot as plt
+
+from hmmlearn import hmm
+
 '''
 divUsers(cursor)
 
@@ -342,4 +347,123 @@ def calcMatrEmis(conn, cursor):
             print "\nImpossibile calcolare la matrice di emissione se prima non sono state calcolate le AOI piu' vicine agli sguardi esterni.\n Selezionare l'opzione 4"
     else:
         print "\nImpossibile calcolare la matrice di emissione se prima non sono stati divisi gli utenti che guardano all'esterno o all'interno di una AOI.\n Selezionare l'opzione 1"
-        
+
+def calcMatrTrans(conn, cursor):
+    cursor.execute("SELECT * FROM saccades")
+    saccades = cursor.fetchall()
+    num_saccades = cursor.rowcount
+    if num_saccades != 0:
+        cursor.execute("SELECT * FROM transizione")
+        trans = cursor.fetchall()
+        num_row_transizione = cursor.rowcount
+        if num_row_transizione == 0:
+            cursor.execute("SELECT * FROM aoi")
+            num_aoi = cursor.rowcount
+            r1 = []
+            r2 = []
+            r3 = []
+            r4 = []
+            r5 = []
+            r6 = []
+            r7 = []
+            r8 = []
+            for i in range (0,num_aoi):
+                r1.append(0)
+            for i in range (0,num_aoi):
+                r2.append(0)
+            for i in range (0,num_aoi):
+                r3.append(0)
+            for i in range (0,num_aoi):
+                r4.append(0)
+            for i in range (0,num_aoi):
+                r5.append(0)
+            for i in range (0,num_aoi):
+                r6.append(0)
+            for i in range (0,num_aoi):
+                r7.append(0)
+            for i in range (0,num_aoi):
+                r8.append(0)
+            m = [ ]
+            m.append(r1)
+            m.append(r2)
+            m.append(r3)
+            m.append(r4)
+            m.append(r5)
+            m.append(r6)
+            m.append(r7)
+            m.append(r8)
+            appoggio1 = 0
+            appoggio2 = 0
+            appoggio3 = 0
+            for saccade in saccades:
+                if saccade[1] == appoggio1 and saccade[2] == appoggio2:
+                    aoi_1 = appoggio3
+                    aoi_2 = saccade[3]
+                    print aoi_1, aoi_2
+                    elem = m[aoi_1-1]
+                    elem[aoi_2-1] = elem[aoi_2 - 1] + 1
+                appoggio1 = saccade[1]
+                appoggio2 = saccade[2]
+                appoggio3 = saccade[3]
+            print m
+            for i in range (0,8):
+                somma = 0
+                for j in range (0,8):
+                    somma = somma + m[i][j]
+                print "La somma della riga", i + 1, "e'", somma
+                for j in range (0,8):
+                    m[i][j] = Decimal(m[i][j])/Decimal(somma)
+                    cursor.execute("INSERT INTO transizione (aoi_partenza, aoi_arrivo, probabilita) VALUES (%s, %s, %s)", (i + 1, j + 1, m[i][j]))
+                    conn.commit()
+        else:
+            print "Matrice di transizione gia' calcolata."
+            for row_trans in trans:
+                print row_trans                   
+    else:
+        print "\nImpossibile calcolare la matrice di transizione se prima non e' stato calcolato il movimento degli sguardi di ogni utente. \n Selezionare l'opzione 6."
+
+def hmm():
+
+    ##############################################################
+    # Prepare parameters for a 4-components HMM
+    # Initial population probability
+    startprob = np.array([0.6, 0.3, 0.1, 0.0])
+    # The transition matrix, note that there are no transitions possible
+    # between component 1 and 3
+    transmat = np.array([[0.7, 0.2, 0.0, 0.1],
+                         [0.3, 0.5, 0.2, 0.0],
+                         [0.0, 0.3, 0.5, 0.2],
+                         [0.2, 0.0, 0.2, 0.6]])
+    # The means of each component
+    means = np.array([[0.0,  0.0],
+                      [0.0, 11.0],
+                      [9.0, 10.0],
+                      [11.0, -1.0]])
+    # The covariance of each component
+    covars = .5 * np.tile(np.identity(2), (4, 1, 1))
+
+    # Build an HMM instance and set parameters
+    model = hmm.GaussianHMM(n_components=4, covariance_type="full")
+
+    # Instead of fitting it from the data, we directly set the estimated
+    # parameters, the means and covariance of the components
+    model.startprob_ = startprob
+    model.transmat_ = transmat
+    model.means_ = means
+    model.covars_ = covars
+    ###############################################################
+
+    # Generate samples
+    X, Z = model.sample(500)
+
+    # Plot the sampled data
+    plt.plot(X[:, 0], X[:, 1], ".-", label="observations", ms=6,
+             mfc="orange", alpha=0.7)
+
+    # Indicate the component numbers
+    for i, m in enumerate(means):
+        plt.text(m[0], m[1], 'Component %i' % (i + 1),
+                 size=17, horizontalalignment='center',
+                 bbox=dict(alpha=.7, facecolor='w'))
+    plt.legend(loc='best')
+    plt.show()

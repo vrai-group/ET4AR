@@ -9,7 +9,7 @@ def createTables(cursor):
     cursor.execute("CREATE TABLE IF NOT EXISTS fix_out (id_user VARCHAR(15), timestamp TIMESTAMP NULL DEFAULT NULL, x DECIMAL(4,2), y DECIMAL(4,2), near_aoi INT(2));")
     cursor.execute("CREATE TABLE IF NOT EXISTS saccades (id_row INT NOT NULL AUTO_INCREMENT PRIMARY KEY, id_user VARCHAR(15), saccade INT(2), aoi INT(2));")
     cursor.execute("CREATE TABLE IF NOT EXISTS emissione (id_user VARCHAR(15), aoi INT(2), probabilita DECIMAL(6,5));")
-    #cursor.execute("CREATE TABLE IF NOT EXISTS transizione (aoi_partenza INT(2), aoi_arrivo INT(2), probabilita DECIMAL(11,10));")
+    cursor.execute("CREATE TABLE IF NOT EXISTS transizione (aoi_partenza INT(2), aoi_arrivo INT(2), probabilita DECIMAL(11,10));")
 
 def selectFromTable(cursor, table):
     if table == 'fix_in':
@@ -29,6 +29,9 @@ def selectFromTable(cursor, table):
         table_fetchall = cursor.fetchall()
     elif table == 'emissione':
         cursor.execute("SELECT * FROM emissione")
+        table_fetchall = cursor.fetchall()
+    elif table == 'transizione':
+        cursor.execute("SELECT * FROM transizione")
         table_fetchall = cursor.fetchall()
     return table_fetchall
 
