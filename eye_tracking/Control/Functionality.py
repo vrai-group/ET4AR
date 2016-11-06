@@ -351,94 +351,94 @@ def calcMatrEmis(conn, cursor):
     else:
         print "\nImpossibile calcolare la matrice di emissione se prima non sono stati divisi gli utenti che guardano all'esterno o all'interno di una AOI.\n Selezionare l'opzione 1"
 
+#La procedura calcMatrTrans(conn, cursor) permette di calcolare la matrice di transizione
 def calcMatrTrans(conn, cursor):
-    cursor.execute("SELECT * FROM saccades")
-    saccades = cursor.fetchall()
-    num_saccades = cursor.rowcount
-    if num_saccades != 0:
-        cursor.execute("SELECT * FROM transizione")
-        trans = cursor.fetchall()
-        num_row_transizione = cursor.rowcount
-        if num_row_transizione == 0:
-            cursor.execute("SELECT * FROM aoi")
-            num_aoi = cursor.rowcount
-            r1 = []
-            r2 = []
-            r3 = []
-            r4 = []
-            r5 = []
-            r6 = []
-            r7 = []
-            r8 = []
-            for i in range (0,num_aoi):
-                r1.append(0)
-            for i in range (0,num_aoi):
-                r2.append(0)
-            for i in range (0,num_aoi):
-                r3.append(0)
-            for i in range (0,num_aoi):
-                r4.append(0)
-            for i in range (0,num_aoi):
-                r5.append(0)
-            for i in range (0,num_aoi):
-                r6.append(0)
-            for i in range (0,num_aoi):
-                r7.append(0)
-            for i in range (0,num_aoi):
-                r8.append(0)
-            m = [ ]
-            m.append(r1)
-            m.append(r2)
-            m.append(r3)
-            m.append(r4)
-            m.append(r5)
-            m.append(r6)
-            m.append(r7)
-            m.append(r8)
-            appoggio1 = 0
-            appoggio2 = 0
-            appoggio3 = 0
+    #Seleziono tutti i saccade calcolati nel punto 6
+    saccades = selectFromTable(cursor, 'saccades')
+    #Conto tutti i saccade presenti
+    count_saccades = countRowTable(cursor, 'saccades')
+    #Se e' presente almeno un saccade, continua
+    if count_saccades != 0:
+        trans = selectFromTable(cursor, 'transizione')
+        count_transizione = countRowTable(cursor, 'transizione')
+        #Se la matrice di transizione non e' stata gia' calcolata, continua
+        if count_transizione == 0:
+            count_aoi = countRowTable(cursor, 'aoi')
+            #Creo una matrice di un numero di righe e un numero di colonne pari al numero delle AOI
+            m = [[0 for i in range(count_aoi)] for j in range(count_aoi)]
+            #Definisco delle variabili di appoggio che utilizzero' in seguito
+            prevIdUser = 0
+            prevSacc = 0
+            prevAoi = 0
+            #Per ogni riga presente nella tabella saccades, allora
             for saccade in saccades:
-                if saccade[1] == appoggio1 and saccade[2] == appoggio2:
-                    aoi_1 = appoggio3
-                    aoi_2 = saccade[3]
-                    print aoi_1, aoi_2
-                    elem = m[aoi_1-1]
-                    elem[aoi_2-1] = elem[aoi_2 - 1] + 1
-                appoggio1 = saccade[1]
-                appoggio2 = saccade[2]
-                appoggio3 = saccade[3]
-            print m
-            for i in range (0,8):
+                #Se l'id_user attuale e quello della riga precendente AND il saccade attuale e quello della riga precedente sono uguali, allora
+                if saccade[1] == prevIdUser and saccade[2] == prevSacc:
+                    aoi_init = prevAoi #Valore AOI attuale
+                    aoi_fin = saccade[3] #Valore AOI precedente
+                    print aoi_init, aoi_fin
+                    #Aumento di una unita' l'elemento corrispondente all'indice [aoi_init - 1][aoi_fin - 1]
+                    m[aoi_init - 1][aoi_fin - 1] = m[aoi_init - 1][aoi_fin - 1] + 1
+                #Assegno alle variabili di appoggio i valori attuali di id_user, saccade e aoi
+                prevIdUser = saccade[1]
+                prevSacc = saccade[2]
+                prevAoi = saccade[3]
+            for i in range (0, count_aoi):
                 somma = 0
-                for j in range (0,8):
+                #Eseguo la somma di ogni riga della matrice m
+                for j in range (0, count_aoi):
                     somma = somma + m[i][j]
                 print "La somma della riga", i + 1, "e'", somma
-                for j in range (0,8):
-                    m[i][j] = Decimal(m[i][j])/Decimal(somma)
-                    cursor.execute("INSERT INTO transizione (aoi_partenza, aoi_arrivo, probabilita) VALUES (%s, %s, %s)", (i + 1, j + 1, m[i][j]))
-                    conn.commit()
+                #Calcolo la matrice di transizione, facendo il rapporto tra il numero di volte che da una certa aoi di passa ad un'altra aoi e 
+                #il numero di volte che dalla stessa aoi si passa ad una qualunque aoi
+                for k in range (0,8):
+                    m[i][k] = Decimal(m[i][k])/Decimal(somma)
+                    #Inserisco la matrice nel database
+                    insertToTable(conn, cursor, 'transizione', i + 1, k + 1, m[i][k], 'NULL', 'NULL')
+            #Svuoto la matrice m
+            m = []
+            print "Matrice di transizione calcolata."
+        #Se la matrice di transizione e' stata gia calcolata, visualizzala
         else:
             print "Matrice di transizione gia' calcolata."
             for row_trans in trans:
-                print row_trans                   
+                print row_trans 
+    # Se non e' presente nemmeno un saccade, impossibile calcolare la matrice di transizione
     else:
         print "\nImpossibile calcolare la matrice di transizione se prima non e' stato calcolato il movimento degli sguardi di ogni utente. \n Selezionare l'opzione 6."
 
-def hiddenMarkovModel():
+#La procedura hiddenMarkovModel() utilizza la libreria hmmlearn
+def hiddenMarkovModel(conn, cursor):
+    count_aoi = countRowTable(cursor, 'aoi')
+    #Definisco la probabilita' iniziale per ogni stato, supposta uguale
+    startprob = np.array([0.048 for i in range(count_aoi)])
 
-    ##############################################################
-    # Prepare parameters for a 4-components HMM
-    # Initial population probability
-    startprob = np.array([0.6, 0.3, 0.1, 0.0])
-    # The transition matrix, note that there are no transitions possible
-    # between component 1 and 3
-    transmat = np.array([[0.7, 0.2, 0.0, 0.1],
-                         [0.3, 0.5, 0.2, 0.0],
-                         [0.0, 0.3, 0.5, 0.2],
-                         [0.2, 0.0, 0.2, 0.6]])
+    #Creo una matrice m con tutti zeri e della dimensione count_aoiXcount_aoi
+    trans = selectFromTable(cursor, 'transizione')
+    #Definisco una variabile di appoggio e gli assegno il valore relativo all'aoi di partenza della prima riga della tabella del db
+    prevAoiInit = trans[0][0]
+    c = [] #Definisco una lista vuota
+    r = []
+    for row in trans:
+        if row[0] == prevAoiInit: #Se l'aoi iniziale attuale e' uguale a quella precedente, allora
+            #Aggiungo la probabilita' alla lista r
+            r.append(row[2])
+        else:
+            #Altrimenti, aggiungo la lista r alla lista c
+            c.append(r)
+            #Svuoto la lista r
+            r = []
+            #Aggiungo alla lista r la probabilita'
+            r.append(row[2])
+        prevAoiInit = row[0]
+
+    transmat = np.array(c)
     # The means of each component
     means = np.array([[0.0,  0.0],
+                      [2.0,  3.0],
+                      [5.0,  7.0],
+                      [8.0,  10.0],
+                      [2.0,  6.0],
                       [0.0, 11.0],
                       [9.0, 10.0],
                       [11.0, -1.0]])
@@ -446,7 +446,7 @@ def hiddenMarkovModel():
     covars = .5 * np.tile(np.identity(2), (4, 1, 1))
 
     # Build an HMM instance and set parameters
-    model = hmm.GaussianHMM(n_components=4, covariance_type="full")
+    model = hmm.GaussianHMM(n_components = count_aoi, covariance_type = "full")
 
     # Instead of fitting it from the data, we directly set the estimated
     # parameters, the means and covariance of the components
@@ -460,10 +460,10 @@ def hiddenMarkovModel():
     X, Z = model.sample(500)
 
     # Plot the sampled data
-    plt.plot(X[:, 0], X[:, 1], ".-", label="observations", ms=6, mfc="orange", alpha=0.7)
+    plt.plot(X[:, 0], X[:, 1], ".-", label = "observations", ms = 6, mfc = "orange", alpha = 0.7)
 
     # Indicate the component numbers
     for i, m in enumerate(means):
-        plt.text(m[0], m[1], 'Component %i' % (i + 1), size=17, horizontalalignment='center', bbox=dict(alpha=.7, facecolor='w'))
-    plt.legend(loc='best')
+        plt.text(m[0], m[1], 'Component %i' % (i + 1), size = 17, horizontalalignment = 'center', bbox = dict(alpha = .7, facecolor = 'w'))
+    plt.legend(loc = 'best')
     plt.show()

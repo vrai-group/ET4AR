@@ -33,6 +33,9 @@ def selectFromTable(cursor, table):
     elif table == 'transizione':
         cursor.execute("SELECT * FROM transizione")
         table_fetchall = cursor.fetchall()
+    elif table == 'saccades':
+        cursor.execute("SELECT * FROM saccades")
+        table_fetchall = cursor.fetchall()
     return table_fetchall
 
 def countRowTable(cursor, table):
@@ -53,6 +56,12 @@ def countRowTable(cursor, table):
         table_rowcount = cursor.rowcount
     elif table == 'emissione':
         cursor.execute("SELECT * FROM emissione")
+        table_rowcount = cursor.rowcount
+    elif table == 'transizione':
+        cursor.execute("SELECT * FROM transizione")
+        table_rowcount = cursor.rowcount
+    elif table == 'saccades':
+        cursor.execute("SELECT * FROM saccades")
         table_rowcount = cursor.rowcount
     return table_rowcount
 
