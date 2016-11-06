@@ -5,6 +5,7 @@ Created on 28 ott 2016
 '''
 from datetime import datetime
 from decimal import *
+from subprocess import STARTUPINFO
 getcontext().prec = 3 #Precisione del decimale
 
 from Model.Database import *
@@ -13,6 +14,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from hmmlearn import hmm
+from sklearn import cluster
+from scipy import *
 
 '''
 divUsers(cursor)
@@ -422,7 +425,7 @@ def calcMatrTrans(conn, cursor):
     else:
         print "\nImpossibile calcolare la matrice di transizione se prima non e' stato calcolato il movimento degli sguardi di ogni utente. \n Selezionare l'opzione 6."
 
-def hmm():
+def hiddenMarkovModel():
 
     ##############################################################
     # Prepare parameters for a 4-components HMM
@@ -457,13 +460,10 @@ def hmm():
     X, Z = model.sample(500)
 
     # Plot the sampled data
-    plt.plot(X[:, 0], X[:, 1], ".-", label="observations", ms=6,
-             mfc="orange", alpha=0.7)
+    plt.plot(X[:, 0], X[:, 1], ".-", label="observations", ms=6, mfc="orange", alpha=0.7)
 
     # Indicate the component numbers
     for i, m in enumerate(means):
-        plt.text(m[0], m[1], 'Component %i' % (i + 1),
-                 size=17, horizontalalignment='center',
-                 bbox=dict(alpha=.7, facecolor='w'))
+        plt.text(m[0], m[1], 'Component %i' % (i + 1), size=17, horizontalalignment='center', bbox=dict(alpha=.7, facecolor='w'))
     plt.legend(loc='best')
     plt.show()
