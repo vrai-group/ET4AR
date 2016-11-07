@@ -4,9 +4,9 @@ Created on 28 ott 2016
 @author: simon
 '''
 from datetime import datetime
-from decimal import *
+from decimal import getcontext, Decimal
+getcontext.prec = 3
 from subprocess import STARTUPINFO
-getcontext().prec = 3 #Precisione del decimale
 
 from Model.Database import *
 
@@ -338,8 +338,9 @@ def calcMatrEmis(conn, cursor):
                     n = 0
                     for id in id_distinct:
                         mat[n] = Decimal(mat[n]) / Decimal(coeff)
-                        print "L\'utente ", id[0], " ha probabilita' ", mat[n], " di guardare l\aoi ", i
-                        insertToTable(conn, cursor, 'emissione', id[0], i, mat[n], 'NULL', 'NULL')
+                        elemRound = Decimal(mat[n].quantize(Decimal('.001'), rounding='ROUND_HALF_DOWN'))
+                        print "L\'utente ", id[0], " ha probabilita' ", elemRound, " di guardare l\'aoi ", i
+                        insertToTable(conn, cursor, 'emissione', id[0], i, elemRound, 'NULL', 'NULL')
                         n = n + 1
                     m.append(mat)
             else:
@@ -393,8 +394,9 @@ def calcMatrTrans(conn, cursor):
                 #il numero di volte che dalla stessa aoi si passa ad una qualunque aoi
                 for k in range (0,8):
                     m[i][k] = Decimal(m[i][k])/Decimal(somma)
+                    elemRound = Decimal(m[i][k].quantize(Decimal('.001'), rounding='ROUND_HALF_DOWN'))
                     #Inserisco la matrice nel database
-                    insertToTable(conn, cursor, 'transizione', i + 1, k + 1, m[i][k], 'NULL', 'NULL')
+                    insertToTable(conn, cursor, 'transizione', i + 1, k + 1, elemRound, 'NULL', 'NULL')
             #Svuoto la matrice m
             m = []
             print "Matrice di transizione calcolata."
@@ -408,12 +410,13 @@ def calcMatrTrans(conn, cursor):
         print "\nImpossibile calcolare la matrice di transizione se prima non e' stato calcolato il movimento degli sguardi di ogni utente. \n Selezionare l'opzione 6."
 
 #La procedura hiddenMarkovModel() utilizza la libreria hmmlearn
-def hiddenMarkovModel(conn, cursor):
+def hiddenMarkovModel(cursor):
     count_aoi = countRowTable(cursor, 'aoi')
+    #Definisco gli stati (aoi)
+    aoi = np.array([i for i in range(0, count_aoi)])
     #Definisco la probabilita' iniziale per ogni stato, supposta uguale
-    startprob = np.array([0.048 for i in range(count_aoi)])
+    start_prob = np.array([0.125 for i in range(0, count_aoi)])
 
-    #Creo una matrice m con tutti zeri e della dimensione count_aoiXcount_aoi
     trans = selectFromTable(cursor, 'transizione')
     #Definisco una variabile di appoggio e gli assegno il valore relativo all'aoi di partenza della prima riga della tabella del db
     prevAoiInit = trans[0][0]
@@ -432,38 +435,49 @@ def hiddenMarkovModel(conn, cursor):
             r.append(row[2])
         prevAoiInit = row[0]
 
-    transmat = np.array(c)
-    # The means of each component
-    means = np.array([[0.0,  0.0],
-                      [2.0,  3.0],
-                      [5.0,  7.0],
-                      [8.0,  10.0],
-                      [2.0,  6.0],
-                      [0.0, 11.0],
-                      [9.0, 10.0],
-                      [11.0, -1.0]])
-    # The covariance of each component
-    covars = .5 * np.tile(np.identity(2), (4, 1, 1))
+    transmatr = np.array(c)
+    
+    emiss = selectFromTable(cursor, 'emissione')
+    #Definisco una variabile di appoggio e gli assegno il valore relativo all'aoi di partenza della prima riga della tabella del db
+    prevAoi = emiss[0][1]
+    c = [] #Definisco una lista vuota
+    r = []
+    for row in emiss:
+        if row[1] == prevAoi: #Se l'aoi iniziale attuale e' uguale a quella precedente, allora
+            #Aggiungo la probabilita' alla lista r
+            r.append(row[2])
+        else:
+            #Altrimenti, aggiungo la lista r alla lista c
+            c.append(r)
+            #Svuoto la lista r
+            r = []
+            #Aggiungo alla lista r la probabilita'
+            r.append(row[2])
+        prevAoi = row[1]
+
+    emissmatr = np.array(c)
 
     # Build an HMM instance and set parameters
-    model = hmm.GaussianHMM(n_components = count_aoi, covariance_type = "full")
-
-    # Instead of fitting it from the data, we directly set the estimated
-    # parameters, the means and covariance of the components
-    model.startprob_ = startprob
-    model.transmat_ = transmat
-    model.means_ = means
-    model.covars_ = covars
-    ###############################################################
-
-    # Generate samples
-    X, Z = model.sample(500)
-
-    # Plot the sampled data
-    plt.plot(X[:, 0], X[:, 1], ".-", label = "observations", ms = 6, mfc = "orange", alpha = 0.7)
-
-    # Indicate the component numbers
-    for i, m in enumerate(means):
-        plt.text(m[0], m[1], 'Component %i' % (i + 1), size = 17, horizontalalignment = 'center', bbox = dict(alpha = .7, facecolor = 'w'))
-    plt.legend(loc = 'best')
+    model = hmm.MultinomialHMM(n_components=count_aoi)
+    model.startprob_=start_prob
+    model.transmat_=transmatr
+    model.emissionprob_=emissmatr
+    
+    print "Prima di fit(aoi)\n"
+    print "Matrice di transizione\n", model.transmat_, "\n"  # returns 8x8 matrix
+    print "Matrice di emissione\n", model.emissionprob_, "\n"  # returns 8x8 matrix ??
+    print "Probabilita' iniziali\n", model.startprob_, "\n"  # returns list with lenght of 8
+    
+    model.fit(aoi)
+    
+    print "Dopo fit(aoi)\n"
+    print "Convergenza EM:", model.monitor_.converged, "\n"  # returns True
+    print "Matrice di transizione\n", model.transmat_, "\n"  # returns 8x8 matrix
+    print "Matrice di emissione\n", model.emissionprob_, "\n"  # returns 8x8 matrix ??
+    print "Probabilita' iniziali\n", model.startprob_, "\n"  # returns list with lenght of 8
+    
+    logprob, estimated_states = model.decode(aoi, algorithm="viterbi")
+    print logprob
+    plt.stem(aoi, label='observation')
+    plt.plot(estimated_states, label='hidden states', color='red')
     plt.show()

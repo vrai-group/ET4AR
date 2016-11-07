@@ -35,7 +35,7 @@ def main():
             elif menu == 8:
                 calcMatrTrans(conn, cursor)
             elif menu == 9:
-                hiddenMarkovModel(conn, cursor)
+                hiddenMarkovModel(cursor)
             elif menu == 0:
                 print 'Arrivederci!'
                 itera = False
