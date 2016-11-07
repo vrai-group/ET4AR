@@ -343,6 +343,7 @@ def calcMatrEmis(conn, cursor):
                         insertToTable(conn, cursor, 'emissione', id[0], i, elemRound, 'NULL', 'NULL')
                         n = n + 1
                     m.append(mat)
+                updateTable(conn, cursor, 'emissione', 'NULL', 'NULL', 'NULL', 'NULL', 'NULL')
             else:
                 emissione = selectFromTable(cursor, 'emissione')
                 for prob in emissione:
@@ -399,6 +400,7 @@ def calcMatrTrans(conn, cursor):
                     insertToTable(conn, cursor, 'transizione', i + 1, k + 1, elemRound, 'NULL', 'NULL')
             #Svuoto la matrice m
             m = []
+            updateTable(conn, cursor, 'transizione', 'NULL', 'NULL', 'NULL', 'NULL', 'NULL')
             print "Matrice di transizione calcolata."
         #Se la matrice di transizione e' stata gia calcolata, visualizzala
         else:
@@ -434,6 +436,7 @@ def hiddenMarkovModel(cursor):
             #Aggiungo alla lista r la probabilita'
             r.append(row[2])
         prevAoiInit = row[0]
+    c.append(r)
 
     transmatr = np.array(c)
     
@@ -454,30 +457,30 @@ def hiddenMarkovModel(cursor):
             #Aggiungo alla lista r la probabilita'
             r.append(row[2])
         prevAoi = row[1]
+    c.append(r)
 
     emissmatr = np.array(c)
+    
+    means = np.array([[0.0, 10.0], [0.0, 0.0], [2.5, 5.0], [5.0, 10.0], [5.0, 0.0], [7.5, 5.0], [10.0, 10.0], [10.0, 0.0]])
+    
+    covars = .5*np.tile(np.identity(2), (8, 1, 1))
 
     # Build an HMM instance and set parameters
-    model = hmm.MultinomialHMM(n_components=count_aoi)
+    model = hmm.GaussianHMM(n_components=count_aoi, covariance_type="full")
     model.startprob_=start_prob
     model.transmat_=transmatr
+    model.means_ = means
+    model.covars_ = covars
     model.emissionprob_=emissmatr
     
-    print "Prima di fit(aoi)\n"
-    print "Matrice di transizione\n", model.transmat_, "\n"  # returns 8x8 matrix
-    print "Matrice di emissione\n", model.emissionprob_, "\n"  # returns 8x8 matrix ??
-    print "Probabilita' iniziali\n", model.startprob_, "\n"  # returns list with lenght of 8
-    
-    model.fit(aoi)
-    
-    print "Dopo fit(aoi)\n"
-    print "Convergenza EM:", model.monitor_.converged, "\n"  # returns True
-    print "Matrice di transizione\n", model.transmat_, "\n"  # returns 8x8 matrix
-    print "Matrice di emissione\n", model.emissionprob_, "\n"  # returns 8x8 matrix ??
-    print "Probabilita' iniziali\n", model.startprob_, "\n"  # returns list with lenght of 8
-    
-    logprob, estimated_states = model.decode(aoi, algorithm="viterbi")
-    print logprob
-    plt.stem(aoi, label='observation')
-    plt.plot(estimated_states, label='hidden states', color='red')
+    # Generate samples
+    X, Z = model.sample(500)
+
+    # Plot the sampled data
+    plt.plot(X[:, 0], X[:, 1], ".-", label="Osservazioni", ms=6, mfc="orange", alpha=0.7)
+
+    # Indicate the component numbers
+    for i, m in enumerate(means):
+        plt.text(m[0], m[1], 'AOI %i' % (i + 1), size=17, horizontalalignment='center', bbox=dict(alpha=.7, facecolor='w'))
+    plt.legend(loc='best')
     plt.show()

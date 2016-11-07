@@ -154,6 +154,10 @@ def updateTable(conn, cursor, table, valaoi, id_user, timestamp, x, y):
         cursor.execute("UPDATE fix_in SET aoi = %s WHERE id_user = %s AND timestamp = %s AND x = %s AND y = %s", (valaoi, id_user, timestamp, x, y))
     elif table == 'fix_out':
         cursor.execute("UPDATE fix_out SET near_aoi = %s WHERE id_user = %s AND timestamp = %s AND x = %s AND y = %s", (valaoi, id_user, timestamp, x, y))
+    elif table == 'emissione':
+        cursor.execute("UPDATE emissione SET probabilita = 0.001 WHERE probabilita = 0.000")
+    elif table == 'transizione':
+        cursor.execute("UPDATE transizione SET probabilita = 0.001 WHERE probabilita = 0.000")
     conn.commit()
 
 def selectAoiOrNearAoi(conn, cursor, table, val1, val2, val3, val4):
